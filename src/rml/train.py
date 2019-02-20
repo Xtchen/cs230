@@ -3,6 +3,7 @@ import os
 
 from torch import nn, optim
 import cv2
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -14,6 +15,13 @@ from constants import (
     LEARNING_RATE_STEP,
 )
 from model import Watch, Spell
+
+
+def plot_losses(losses):
+    plt.xlabel('# iter')
+    plt.ylabel('loss')
+    plt.plot(range(len(losses)), losses)
+    plt.show()
 
 
 def load_video(video_path):
@@ -85,7 +93,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss(ignore_index=CHAR_SET.index('<pad>'))
 
-    for epoch in range(200):
+    for epoch in range(110):
         watch_scheduler.step()
         spell_scheduler.step()
 
@@ -130,13 +138,16 @@ if __name__ == '__main__':
                 except Exception as e:
                     print(f'==================skip output================== due to error {e}')
 
-            losses.append(loss)
             loss = loss.to('cuda')
             loss.backward()
             watch_optimizer.step()
             spell_optimizer.step()
 
-        print(f'loss {loss/chars.size(0)}')
+            norm_loss = float(loss / chars.size(0))
+            losses.append(norm_loss)
+
+            print(f'loss {norm_loss} epoch {epoch}')
         watcher = watcher.eval()
         speller = speller.eval()
     print(f'{losses}')
+    plot_losses(losses)
