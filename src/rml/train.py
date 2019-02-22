@@ -91,7 +91,7 @@ if __name__ == '__main__':
     watch_scheduler = optim.lr_scheduler.StepLR(watch_optimizer, step_size=LEARNING_RATE_STEP, gamma=LEARNING_RATE_GAMMA)
     spell_scheduler = optim.lr_scheduler.StepLR(spell_optimizer, step_size=LEARNING_RATE_STEP, gamma=LEARNING_RATE_GAMMA)
 
-    criterion = nn.CrossEntropyLoss(ignore_index=CHAR_SET.index('<pad>'))
+    criterion = nn.CrossEntropyLoss()
 
     for epoch in range(110):
         watch_scheduler.step()
