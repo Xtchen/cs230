@@ -1,4 +1,5 @@
-DEST_DIR = '/home/xiaotongchen/workspace/stanford/cs230/data/lrs3/cropped/4a6ZRstYlgw'
+#DEST_DIR = '/home/xiaotongchen/workspace/stanford/cs230/data/lrs3/cropped/4a6ZRstYlgw'
+DEST_DIR = '/home/ec2-user/cs230/src/rml/data/cropped/'
 LEARNING_RATE = 0.001
 LEARNING_RATE_STEP = 50
 LEARNING_RATE_GAMMA = 0.1
