@@ -76,11 +76,11 @@ if __name__ == '__main__':
     watcher = Watch()
     try:
         # for some reason, the first attempt using cuda always fails for me...
-        watcher = watcher.to('cuda')
+        watcher = watcher.to('cuda' if torch.cuda.is_available() else 'cpu')
     except:
-        watcher = watcher.to('cuda')
+        watcher = watcher.to('cuda' if torch.cuda.is_available() else 'cpu')
     speller = Spell()
-    speller = speller.to('cuda')
+    speller = speller.to('cuda' if torch.cuda.is_available() else 'cpu')
 
     losses = []
 
@@ -106,15 +106,15 @@ if __name__ == '__main__':
             watch_optimizer.zero_grad()
             spell_optimizer.zero_grad()
 
-            x = x.to('cuda')
-            chars = chars.to('cuda')
+            x = x.to('cuda' if torch.cuda.is_available() else 'cpu')
+            chars = chars.to('cuda' if torch.cuda.is_available() else 'cpu')
             output_from_vgg_lstm, states_from_vgg_lstm = watcher(x)
             chars_len = chars.size(0)
 
-            spell_input = torch.tensor([[CHAR_SET.index('<sos>')]]).repeat(output_from_vgg_lstm.size(0), 1).to('cuda')
+            spell_input = torch.tensor([[CHAR_SET.index('<sos>')]]).repeat(output_from_vgg_lstm.size(0), 1).to('cuda' if torch.cuda.is_available() else 'cpu')
             spell_hidden = states_from_vgg_lstm
-            spell_state = torch.zeros_like(spell_hidden).to('cuda')
-            context = torch.zeros(output_from_vgg_lstm.size(0), 1, spell_hidden.size(2)).to('cuda')
+            spell_state = torch.zeros_like(spell_hidden).to('cuda' if torch.cuda.is_available() else 'cpu')
+            context = torch.zeros(output_from_vgg_lstm.size(0), 1, spell_hidden.size(2)).to('cuda' if torch.cuda.is_available() else 'cpu')
 
             for idx in range(chars_len):
                 spell_output, spell_hidden, spell_state, context = speller(spell_input, spell_hidden, spell_state, output_from_vgg_lstm, context)
@@ -138,7 +138,7 @@ if __name__ == '__main__':
                 except Exception as e:
                     print(f'==================skip output================== due to error {e}')
 
-            loss = loss.to('cuda')
+            loss = loss.to('cuda' if torch.cuda.is_available() else 'cpu')
             loss.backward()
             watch_optimizer.step()
             spell_optimizer.step()
