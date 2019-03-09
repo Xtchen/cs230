@@ -1,11 +1,13 @@
 from glob import glob
 import os
 
-from torch import nn, optim
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from torch import nn, optim
+from torch.utils.data import Dataset, DataLoader
+from torch.utils.data.sampler import SubsetRandomSampler
 
 from constants import (
     CHAR_SET,
@@ -37,11 +39,11 @@ def load_video(video_path):
         has_content, frame = cap.read()
 
     try:
-        buffer = buffer[:int(len(buffer)/5)*5]  # make sure the total frame can be dived by 5 by dropping the extra frames.
+        results = torch.zeros(512, 120, 120)  # torch believes image_tensor is a BytesTensor. let's convert it to int.
         image_tensor = torch.from_numpy(np.concatenate(buffer, axis=0))
-        results = torch.zeros(len(buffer), 120, 120)  # torch believes image_tensor is a BytesTensor. let's convert it to int.
-        results[:, :, :] = image_tensor[:, :, :]
-        results = results.view(1, -1, 120, 120)
+        # DataLoader wants size of tensors match.
+        idx = torch.tensor([i for i in range(image_tensor.size(0) - 1, -1, -1)])
+        results[:image_tensor.size(0), :, :] = image_tensor[idx, :, :]
     except Exception as e:
         print(f'due to error: {e}\nfailed to load video {video_path}')
 
@@ -50,26 +52,50 @@ def load_video(video_path):
     return results
 
 
-def load_training_data():
-    ret = []
-    all_mp4 = sorted(glob(os.path.join(DEST_DIR, '*.mp4')))
-    all_txt = sorted(glob(os.path.join(DEST_DIR, '*.txt')))
+def load_one_entry(video_path, text_path):
+    x = load_video(video_path)
+    with open(text_path, 'r') as f:
+        first_line = f.readline()
+        first_line = first_line.replace(' ', '').rstrip('\n')
+        chars = [CHAR_SET.index(i) for i in first_line.split(':')[1]]
 
-    assert len(all_mp4) == len(all_txt)
+        # add eos to the end.
+        chars.append(CHAR_SET.index('<eos>'))
 
-    for idx in range(len(all_mp4)):
-        x = load_video(all_mp4[idx])
-        with open(all_txt[idx], 'r') as f:
-            first_line = f.readline()
-            first_line = first_line.replace(' ', '').rstrip('\n')
-            chars = [CHAR_SET.index(i) for i in first_line.split(':')[1]]
+        # DataLoader wants size of tensors match.
+        if len(chars) < 512:
+            chars += [CHAR_SET.index('<pad>') for _ in range(512 - len(chars))]
 
-            # add eos to the end.
-            chars.append(CHAR_SET.index('<eos>'))
-            chars = torch.Tensor(chars)
-        ret.append((x, chars))
+        chars = torch.Tensor(chars)
+    return x, chars
 
-    return ret
+
+class MyDataSet(Dataset):
+    """https://stanford.edu/~shervine/blog/pytorch-how-to-generate-data-parallel"""
+    def __init__(self):
+        self.all_mp4 = sorted(glob(os.path.join(DEST_DIR, '*.mp4')))
+        self.all_txt = sorted(glob(os.path.join(DEST_DIR, '*.txt')))
+
+    def __len__(self):
+        return len(self.all_mp4)
+
+    def __getitem__(self, index):
+        return load_one_entry(self.all_mp4[index], self.all_txt[index])
+
+
+def data_loader():
+    training_set = MyDataSet()
+    train_len = len(training_set)
+    indexes = list(range(train_len))
+    np.random.shuffle(indexes)
+    train_sampler = SubsetRandomSampler(indexes)
+
+    train_loader = DataLoader(
+        training_set, batch_size=32, sampler=train_sampler,
+        num_workers=4, pin_memory=True
+    )
+
+    return train_loader
 
 
 if __name__ == '__main__':
@@ -100,7 +126,7 @@ if __name__ == '__main__':
         watcher = watcher.train()
         speller = speller.train()
 
-        for (x, chars) in load_training_data():
+        for i, (x, chars) in enumerate(data_loader()):
             loss = 0
             guess = []
             watch_optimizer.zero_grad()
@@ -109,7 +135,7 @@ if __name__ == '__main__':
             x = x.to('cuda' if torch.cuda.is_available() else 'cpu')
             chars = chars.to('cuda' if torch.cuda.is_available() else 'cpu')
             output_from_vgg_lstm, states_from_vgg_lstm = watcher(x)
-            chars_len = chars.size(0)
+            chars_len = chars.size(1)
 
             spell_input = torch.tensor([[CHAR_SET.index('<sos>')]]).repeat(output_from_vgg_lstm.size(0), 1).to('cuda' if torch.cuda.is_available() else 'cpu')
             spell_hidden = states_from_vgg_lstm
@@ -119,35 +145,35 @@ if __name__ == '__main__':
             for idx in range(chars_len):
                 spell_output, spell_hidden, spell_state, context = speller(spell_input, spell_hidden, spell_state, output_from_vgg_lstm, context)
                 _, topi = spell_output.topk(1, dim=2)
-                spell_input = chars[idx].long().view(1, 1)
+                spell_input = chars[:, idx].long().unsqueeze(1)
                 # import pdb; pdb.set_trace()
-                loss += criterion(spell_output.squeeze(1), chars[idx].long().view(1))
+                loss += criterion(spell_output.squeeze(1), chars[:, idx].long())
 
-                # print(f'truth char: {chars[idx]} | guess char: {int(topi.squeeze(1)[0])}')
                 guess.append(int(topi.squeeze(1)[0]))
 
             if epoch % 5 == 0:
                 label = ''
                 prediction = ''
                 try:
+                    #import pdb; pdb.set_trace()
                     for ii in range(chars_len):
-                        label += CHAR_SET[int(chars[ii])]
+                        label += CHAR_SET[int(chars[0][ii])]
                         prediction += CHAR_SET[int(guess[ii])]
                     print(f'label: {label}')
                     print(f'guess: {prediction}')
                 except Exception as e:
                     print(f'==================skip output================== due to error {e}')
 
-            loss = loss.to('cuda' if torch.cuda.is_available() else 'cpu')
-            loss.backward()
-            watch_optimizer.step()
-            spell_optimizer.step()
+        loss = loss.to('cuda' if torch.cuda.is_available() else 'cpu')
+        loss.backward()
+        watch_optimizer.step()
+        spell_optimizer.step()
 
-            norm_loss = float(loss / chars.size(0))
-            losses.append(norm_loss)
+        norm_loss = float(loss / chars.size(0))
+        losses.append(norm_loss)
 
-            print(f'loss {norm_loss} epoch {epoch}')
-        watcher = watcher.eval()
-        speller = speller.eval()
+        print(f'loss {norm_loss} epoch {epoch}')
+    watcher = watcher.eval()
+    speller = speller.eval()
     print(f'{losses}')
     plot_losses(losses)
