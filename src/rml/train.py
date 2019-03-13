@@ -30,7 +30,14 @@ def load_video(video_path):
     buffer = []
 
     has_content, frame = cap.read()
+    count = 0
     while has_content:
+
+        # Fetch every 3 frames.
+        count += 1
+        if count % 3 == 0:
+            has_content, frame = cap.read()
+            continue
 
         gray = cv2.resize(cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY), (120, 120)).reshape(1, 120, 120)
         buffer.append(gray)
@@ -93,7 +100,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
 
-    for epoch in range(110):
+    for epoch in range(1100):
         watch_scheduler.step()
         spell_scheduler.step()
 
