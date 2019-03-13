@@ -65,7 +65,7 @@ def check_ratio(path):
             return False
 
         if float(content) < 0.9:
-            print('%s skip, invalid', path)
+            print('{} skipped for low transferring ratio.'.format(path))
             return False
 
     return True
@@ -73,28 +73,34 @@ def check_ratio(path):
 
 def load_training_data():
     ret = []
-    all_mp4 = sorted(glob(os.path.join(DEST_DIR, '*.mp4')))
-    all_txt = sorted(glob(os.path.join(DEST_DIR, '*.txt')))
-    all_ratio = sorted(glob(os.path.join(DEST_DIR, '*.ratio')))
 
-    assert len(all_mp4) == len(all_txt)
+    dirs = os.listdir(DEST_DIR)
 
-    for idx in range(len(all_mp4)):
+    for dir in dirs:
+        print('loading {}'.format(dir))
 
-        # Skip for invalid videoes.
-        if not check_ratio(all_ratio[idx]):
-            continue
+        all_mp4 = sorted(glob(os.path.join(DEST_DIR, dir, '*.mp4')))
+        all_txt = sorted(glob(os.path.join(DEST_DIR, dir, '*.txt')))
+        all_ratio = sorted(glob(os.path.join(DEST_DIR, dir, '*.ratio')))
 
-        x = load_video(all_mp4[idx])
-        with open(all_txt[idx], 'r') as f:
-            first_line = f.readline()
-            first_line = first_line.replace(' ', '').rstrip('\n')
-            chars = [CHAR_SET.index(i) for i in first_line.split(':')[1]]
+        assert len(all_mp4) == len(all_txt)
 
-            # add eos to the end.
-            chars.append(CHAR_SET.index('<eos>'))
-            chars = torch.Tensor(chars)
-        ret.append((x, chars))
+        for idx in range(len(all_mp4)):
+
+            # Skip for invalid videoes.
+            if not check_ratio(all_ratio[idx]):
+                continue
+
+            x = load_video(all_mp4[idx])
+            with open(all_txt[idx], 'r') as f:
+                first_line = f.readline()
+                first_line = first_line.replace(' ', '').rstrip('\n')
+                chars = [CHAR_SET.index(i) for i in first_line.split(':')[1]]
+
+                # add eos to the end.
+                chars.append(CHAR_SET.index('<eos>'))
+                chars = torch.Tensor(chars)
+            ret.append((x, chars))
 
     return ret
 
