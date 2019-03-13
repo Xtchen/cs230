@@ -93,13 +93,17 @@ def load_training_data():
 
             x = load_video(all_mp4[idx])
             with open(all_txt[idx], 'r') as f:
-                first_line = f.readline()
-                first_line = first_line.replace(' ', '').rstrip('\n')
-                chars = [CHAR_SET.index(i) for i in first_line.split(':')[1]]
+                try:
+                    first_line = f.readline()
+                    first_line = first_line.replace(' ', '').rstrip('\n')
+                    chars = [CHAR_SET.index(i) for i in first_line.split(':')[1]]
 
-                # add eos to the end.
-                chars.append(CHAR_SET.index('<eos>'))
-                chars = torch.Tensor(chars)
+                    # add eos to the end.
+                    chars.append(CHAR_SET.index('<eos>'))
+                    chars = torch.Tensor(chars)
+                except Exception as e:
+                    print('Wrong text data, skip! {}: {}'.format(first_line, e))
+                    continue
             ret.append((x, chars))
 
     return ret
