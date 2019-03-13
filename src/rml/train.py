@@ -57,14 +57,34 @@ def load_video(video_path):
     return results
 
 
+def check_ratio(path):
+    with open(path) as a:
+        content = a.read()
+
+        if not content:
+            return False
+
+        if float(content) < 0.9:
+            print('%s skip, invalid', path)
+            return False
+
+    return True
+
+
 def load_training_data():
     ret = []
     all_mp4 = sorted(glob(os.path.join(DEST_DIR, '*.mp4')))
     all_txt = sorted(glob(os.path.join(DEST_DIR, '*.txt')))
+    all_ratio = sorted(glob(os.path.join(DEST_DIR, '*.ratio')))
 
     assert len(all_mp4) == len(all_txt)
 
     for idx in range(len(all_mp4)):
+
+        # Skip for invalid videoes.
+        if not check_ratio(all_ratio[idx]):
+            continue
+
         x = load_video(all_mp4[idx])
         with open(all_txt[idx], 'r') as f:
             first_line = f.readline()
