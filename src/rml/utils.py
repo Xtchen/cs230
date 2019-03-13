@@ -11,7 +11,7 @@ def split_data():
         count += 1
         target = count % 5
 
-        shutil.move(os.path.join(path, dir), os.path.join(path, des_path.join(target)))
+        shutil.move(os.path.join(path, dir), os.path.join(path, des_path.format(target)))
 
 
 if __name__ == '__main__':

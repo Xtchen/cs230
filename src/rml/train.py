@@ -131,7 +131,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
 
-    for epoch in range(1100):
+    for epoch in range(120):
         watch_scheduler.step()
         spell_scheduler.step()
 
@@ -187,5 +187,10 @@ if __name__ == '__main__':
             print(f'loss {norm_loss} epoch {epoch}')
         watcher = watcher.eval()
         speller = speller.eval()
+
+        if epoch % 5 == 0 and epoch != 0:
+            torch.save(watcher, '/home/ec2-user/modelStates/watch{}.pt'.format(epoch))
+            torch.save(speller, '/home/ec2-user/modelStates/spell{}.pt'.format(epoch))
+
     print(f'{losses}')
     plot_losses(losses)
