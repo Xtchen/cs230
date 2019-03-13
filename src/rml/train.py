@@ -106,6 +106,7 @@ def load_training_data():
                     continue
             ret.append((x, chars))
 
+    print('total valid data size: {}'.format(len(ret)))
     return ret
 
 
