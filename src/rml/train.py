@@ -33,9 +33,9 @@ def load_video(video_path):
     count = 0
     while has_content:
 
-        # Fetch every 3 frames.
+        # Fetch every 5 frames.
         count += 1
-        if count % 3 == 0:
+        if count % 5 == 0:
             has_content, frame = cap.read()
             continue
 
