@@ -138,8 +138,8 @@ if __name__ == '__main__':
         watch_scheduler.step()
         spell_scheduler.step()
 
-        # watcher = watcher.train()
-        # speller = speller.train()
+        watcher = watcher.train()
+        speller = speller.train()
 
         with open('/home/ec2-user/modelStates/loss{}'.format(epoch), 'w+') as loss_writer:
 
@@ -189,15 +189,18 @@ if __name__ == '__main__':
                 norm_loss = float(loss / chars.size(0))
                 losses.append(norm_loss)
 
-                print(f'loss {norm_loss} epoch {epoch}')
-                loss_writer.write(f'{norm_loss} ')
+                #print(f'loss {norm_loss} epoch {epoch}')
+                loss_writer.write(str(norm_loss) + ' ')
 
         watcher = watcher.eval()
         speller = speller.eval()
 
-        # Starting from epoch 11, save model's states.
-        torch.save(watcher.state_dict(), '/home/ec2-user/modelStates/watch{}.pt'.format(epoch))
-        torch.save(speller.state_dict(), '/home/ec2-user/modelStates/spell{}.pt'.format(epoch))
+        # Starting from epoch 11, save model's states and whole model.
+        torch.save(watcher.state_dict(), '/home/ec2-user/modelStates/watch{}_st.pt'.format(epoch))
+        torch.save(speller.state_dict(), '/home/ec2-user/modelStates/spell{}_st.pt'.format(epoch))
+
+        torch.save(watcher, '/home/ec2-user/modelStates/watch{}.pt'.format(epoch))
+        torch.save(speller, '/home/ec2-user/modelStates/spell{}.pt'.format(epoch))
 
     print(f'{losses}')
     plot_losses(losses)
