@@ -111,14 +111,17 @@ def load_training_data():
 
 
 if __name__ == '__main__':
-    watcher = Watch()
-    try:
-        # for some reason, the first attempt using cuda always fails for me...
-        watcher = watcher.to('cuda' if torch.cuda.is_available() else 'cpu')
-    except:
-        watcher = watcher.to('cuda' if torch.cuda.is_available() else 'cpu')
-    speller = Spell()
-    speller = speller.to('cuda' if torch.cuda.is_available() else 'cpu')
+    # watcher = Watch()
+    # try:
+    #     # for some reason, the first attempt using cuda always fails for me...
+    #     watcher = watcher.to('cuda' if torch.cuda.is_available() else 'cpu')
+    # except:
+    #     watcher = watcher.to('cuda' if torch.cuda.is_available() else 'cpu')
+    # speller = Spell()
+    # speller = speller.to('cuda' if torch.cuda.is_available() else 'cpu')
+
+    watcher = torch.load('/home/ec2-user/modelStates/watch10.pt')
+    speller = torch.load('/home/ec2-user/modelStates/spell10.pt')
 
     losses = []
 
@@ -131,66 +134,70 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
 
-    for epoch in range(120):
+    for epoch in range(11, 110):
         watch_scheduler.step()
         spell_scheduler.step()
 
-        watcher = watcher.train()
-        speller = speller.train()
+        # watcher = watcher.train()
+        # speller = speller.train()
 
-        for (x, chars) in load_training_data():
-            loss = 0
-            guess = []
-            watch_optimizer.zero_grad()
-            spell_optimizer.zero_grad()
+        with open('/home/ec2-user/modelStates/loss{}'.format(epoch), 'w+') as loss_writer:
 
-            x = x.to('cuda' if torch.cuda.is_available() else 'cpu')
-            chars = chars.to('cuda' if torch.cuda.is_available() else 'cpu')
-            output_from_vgg_lstm, states_from_vgg_lstm = watcher(x)
-            chars_len = chars.size(0)
+            for (x, chars) in load_training_data():
+                loss = 0
+                guess = []
+                watch_optimizer.zero_grad()
+                spell_optimizer.zero_grad()
 
-            spell_input = torch.tensor([[CHAR_SET.index('<sos>')]]).repeat(output_from_vgg_lstm.size(0), 1).to('cuda' if torch.cuda.is_available() else 'cpu')
-            spell_hidden = states_from_vgg_lstm
-            spell_state = torch.zeros_like(spell_hidden).to('cuda' if torch.cuda.is_available() else 'cpu')
-            context = torch.zeros(output_from_vgg_lstm.size(0), 1, spell_hidden.size(2)).to('cuda' if torch.cuda.is_available() else 'cpu')
+                x = x.to('cuda' if torch.cuda.is_available() else 'cpu')
+                chars = chars.to('cuda' if torch.cuda.is_available() else 'cpu')
+                output_from_vgg_lstm, states_from_vgg_lstm = watcher(x)
+                chars_len = chars.size(0)
 
-            for idx in range(chars_len):
-                spell_output, spell_hidden, spell_state, context = speller(spell_input, spell_hidden, spell_state, output_from_vgg_lstm, context)
-                _, topi = spell_output.topk(1, dim=2)
-                spell_input = chars[idx].long().view(1, 1)
-                # import pdb; pdb.set_trace()
-                loss += criterion(spell_output.squeeze(1), chars[idx].long().view(1))
+                spell_input = torch.tensor([[CHAR_SET.index('<sos>')]]).repeat(output_from_vgg_lstm.size(0), 1).to('cuda' if torch.cuda.is_available() else 'cpu')
+                spell_hidden = states_from_vgg_lstm
+                spell_state = torch.zeros_like(spell_hidden).to('cuda' if torch.cuda.is_available() else 'cpu')
+                context = torch.zeros(output_from_vgg_lstm.size(0), 1, spell_hidden.size(2)).to('cuda' if torch.cuda.is_available() else 'cpu')
 
-                # print(f'truth char: {chars[idx]} | guess char: {int(topi.squeeze(1)[0])}')
-                guess.append(int(topi.squeeze(1)[0]))
+                for idx in range(chars_len):
+                    spell_output, spell_hidden, spell_state, context = speller(spell_input, spell_hidden, spell_state, output_from_vgg_lstm, context)
+                    _, topi = spell_output.topk(1, dim=2)
+                    spell_input = chars[idx].long().view(1, 1)
+                    # import pdb; pdb.set_trace()
+                    loss += criterion(spell_output.squeeze(1), chars[idx].long().view(1))
 
-            if epoch % 5 == 0:
-                label = ''
-                prediction = ''
-                try:
-                    for ii in range(chars_len):
-                        label += CHAR_SET[int(chars[ii])]
-                        prediction += CHAR_SET[int(guess[ii])]
-                    print(f'label: {label}')
-                    print(f'guess: {prediction}')
-                except Exception as e:
-                    print(f'==================skip output================== due to error {e}')
+                    # print(f'truth char: {chars[idx]} | guess char: {int(topi.squeeze(1)[0])}')
+                    guess.append(int(topi.squeeze(1)[0]))
 
-            loss = loss.to('cuda' if torch.cuda.is_available() else 'cpu')
-            loss.backward()
-            watch_optimizer.step()
-            spell_optimizer.step()
+                if epoch % 5 == 0:
+                    label = ''
+                    prediction = ''
+                    try:
+                        for ii in range(chars_len):
+                            label += CHAR_SET[int(chars[ii])]
+                            prediction += CHAR_SET[int(guess[ii])]
+                        print(f'label: {label}')
+                        print(f'guess: {prediction}')
+                    except Exception as e:
+                        print(f'==================skip output================== due to error {e}')
 
-            norm_loss = float(loss / chars.size(0))
-            losses.append(norm_loss)
+                loss = loss.to('cuda' if torch.cuda.is_available() else 'cpu')
+                loss.backward()
+                watch_optimizer.step()
+                spell_optimizer.step()
 
-            print(f'loss {norm_loss} epoch {epoch}')
+                norm_loss = float(loss / chars.size(0))
+                losses.append(norm_loss)
+
+                print(f'loss {norm_loss} epoch {epoch}')
+                loss_writer.write(f'{norm_loss} ')
+
         watcher = watcher.eval()
         speller = speller.eval()
 
-        if epoch % 5 == 0 and epoch != 0:
-            torch.save(watcher, '/home/ec2-user/modelStates/watch{}.pt'.format(epoch))
-            torch.save(speller, '/home/ec2-user/modelStates/spell{}.pt'.format(epoch))
+        # Starting from epoch 11, save model's states.
+        torch.save(watcher.state_dict(), '/home/ec2-user/modelStates/watch{}.pt'.format(epoch))
+        torch.save(speller.state_dict(), '/home/ec2-user/modelStates/spell{}.pt'.format(epoch))
 
     print(f'{losses}')
     plot_losses(losses)
