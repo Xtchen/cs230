@@ -6,3 +6,4 @@ opencv-python
 sk-video
 dlib
 matplotlib
+editdistance

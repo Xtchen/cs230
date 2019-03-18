@@ -2,6 +2,7 @@ from glob import glob
 import os
 
 from torch import nn, optim
+import editdistance
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
@@ -178,6 +179,8 @@ if __name__ == '__main__':
                             prediction += CHAR_SET[int(guess[ii])]
                         print(f'label: {label}')
                         print(f'guess: {prediction}')
+                        ed = editdistance.eval(label, prediction)
+                        print(f'edit distance is {ed} / {len(label)} = {ed/len(label)}')
                     except Exception as e:
                         print(f'==================skip output================== due to error {e}')
 
