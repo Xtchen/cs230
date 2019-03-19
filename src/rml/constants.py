@@ -2,6 +2,7 @@
 #DEST_DIR = '/Users/hmao/Documents/AI Stanford/Deep Learning/cs230/src/rml/data/cropped/'
 #DEST_DIR = '/home/ec2-user/cs230/src/rml/data/cropped/'
 DEST_DIR = '/home/ec2-user/data/cropped0/'
+TEST_DIR = '/home/ec2-user/testData/'
 LEARNING_RATE = 0.001
 LEARNING_RATE_STEP = 50
 LEARNING_RATE_GAMMA = 0.1
