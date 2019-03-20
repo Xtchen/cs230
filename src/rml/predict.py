@@ -81,7 +81,7 @@ def load_testing_data():
             continue
 
         x = load_video(all_mp4[idx])
-        ret.append(x)
+        ret.append((x, all_mp4[idx]))
 
     print('total valid data size: {}'.format(len(ret)))
     return ret
@@ -104,7 +104,7 @@ if __name__ == '__main__':
 
     criterion = nn.CrossEntropyLoss()
 
-    for x in load_testing_data():
+    for x, path in load_testing_data():
         loss = 0
         guess = []
 
@@ -131,6 +131,7 @@ if __name__ == '__main__':
         try:
             for ii in range(len(guess)):
                 prediction += CHAR_SET[int(guess[ii])]
+            print(path)
             print(f'guess: {prediction}')
         except Exception as e:
             print(f'==================skip output================== due to error {e}')
